@@ -1,0 +1,67 @@
+name: CM-Release
+on:
+  workflow_dispatch:
+
+# on:
+#   push:
+#     branches:
+#       - main
+#       - 'feature/cicd'
+
+jobs:
+  deploy-dev:
+    name: Deploy - SBX
+    runs-on: windows-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Print Env Variables
+        run: C:\Windows\System32\cmd.exe /c set
+
+      # - uses: sede-x/SCMA-Reports/.github/actions/powerbi-publish@feature/cicd
+      #   with:
+      #     workspace-name: 'PW-DS-SEAM_SCMA'
+      #     report-path: "${{GITHUB.WORKSPACE}}\\reports"
+      #     client-id: ${{ secrets.CLIENTID }}
+      #     client-secret: ${{ secrets.CLIENTSECRET }}
+      #     tenant-id: ${{ secrets.TENANTID }}
+
+      - name: Execute Script
+        run: |
+          ${{ GITHUB.WORKSPACE }}\.github\actions\powerbi-publish\run-task.ps1 -ClientId ${{ secrets.CLIENTID }} -Secret ${{ secrets.CLIENTSECRET }} -TenantId ${{ secrets.TENANTID }} -FilePattern "${{GITHUB.WORKSPACE}}\\reports" -WorkspaceName  PW-DS-SEAM_SCMA -Action 'Publish' -Create $true -Overwrite $true
+        shell: powershell
+
+  #   - name: Do work in DEV
+  #     run: |
+  #       echo "Do some work in dev."
+
+  # deploy-qat-approval:
+  #   name: QAT Approval
+  #   needs: deploy-dev
+  #   runs-on: windows-latest
+  #   environment: qat-approval
+  #   steps:
+  #   - name: Approval gate for QAT
+  #     run: |
+  #       echo "Approved for QAT."
+
+  # deploy-qat:
+  #   name: Deploy - QAT
+  #   needs: deploy-qat-approval
+  #   runs-on: windows-latest
+  #   environment: qat
+  #   steps:
+  #   - name: Do work in QAT
+  #     run: |
+  #       echo "Do some work in QAT."
+
+  # deploy-prod:
+  #   name: Deploy - Prod
+  #   needs: deploy-qat
+  #   runs-on: windows-latest
+  #   environment: prod
+  #   steps:
+  #   - name: Do work in PROD
+  #     run: |
+  #       echo "Do some work in PROD."
