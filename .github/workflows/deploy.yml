@@ -1,67 +1,111 @@
-name: CM-Release
+name: CI-Main
 on:
-  workflow_dispatch:
-
-# on:
-#   push:
-#     branches:
-#       - main
-#       - 'feature/cicd'
+  push:
+    branches:
+      - main
+      - features-pwrbicicd
 
 jobs:
   deploy-dev:
-    name: Deploy - SBX
+    name: Deploy - DEV
     runs-on: windows-latest
     environment: dev
+
     steps:
       - uses: actions/checkout@v3
 
       - name: Print Env Variables
         run: C:\Windows\System32\cmd.exe /c set
 
-      # - uses: sede-x/SCMA-Reports/.github/actions/powerbi-publish@feature/cicd
+      # - uses: sede-x/SCMA-Reports/.github/actions/powerbi-publish@main
       #   with:
-      #     workspace-name: 'PW-DS-SEAM_SCMA'
+      #     workspace-name: 'PW-GF-power bi ci cd testing'
       #     report-path: "${{GITHUB.WORKSPACE}}\\reports"
       #     client-id: ${{ secrets.CLIENTID }}
       #     client-secret: ${{ secrets.CLIENTSECRET }}
       #     tenant-id: ${{ secrets.TENANTID }}
 
-      - name: Execute Script
+      - name: Publish Reports
         run: |
-          ${{ GITHUB.WORKSPACE }}\.github\actions\powerbi-publish\run-task.ps1 -ClientId ${{ secrets.CLIENTID }} -Secret ${{ secrets.CLIENTSECRET }} -TenantId ${{ secrets.TENANTID }} -FilePattern "${{GITHUB.WORKSPACE}}\\reports" -WorkspaceName  PW-DS-SEAM_SCMA -Action 'Publish' -Create $true -Overwrite $true
+          ${{ GITHUB.WORKSPACE }}\.github\actions\powerbi-publish\run-task.ps1 -ClientId ${{ secrets.CLIENTID }} -Secret ${{ secrets.CLIENTSECRET }} -TenantId ${{ secrets.TENANTID }} -FilePattern "${{GITHUB.WORKSPACE}}\\reports" -WorkspaceName  ${{secrets.WORKSPACENAME}} -Action 'Publish' -Create $true -Overwrite $true
         shell: powershell
 
-  #   - name: Do work in DEV
-  #     run: |
-  #       echo "Do some work in dev."
+      - name: Update Datasources
+        run: |
+          ${{ GITHUB.WORKSPACE }}\.github\actions\powerbi-publish\run-task.ps1 -ClientId ${{ secrets.CLIENTID }} -Secret ${{ secrets.CLIENTSECRET }} -TenantId ${{ secrets.TENANTID }} -FilePattern "${{GITHUB.WORKSPACE}}\\reports" -WorkspaceName  ${{secrets.WORKSPACENAME}} -Action 'UpdateDatasourceViaGateway' -Dataset 'ECR_CICD' -NewServer '${{ secrets.DB_SERVER }}' -NewDatabase '${{ secrets.DB_NAME }}' -DataSourceUsername '${{ secrets.DB_USER }}' -DataSourcePassword '${{ secrets.DB_PASSWORD }}'
+        shell: powershell
 
-  # deploy-qat-approval:
-  #   name: QAT Approval
-  #   needs: deploy-dev
-  #   runs-on: windows-latest
-  #   environment: qat-approval
-  #   steps:
-  #   - name: Approval gate for QAT
-  #     run: |
-  #       echo "Approved for QAT."
+      - name: list contents
+        run: ls
 
-  # deploy-qat:
-  #   name: Deploy - QAT
-  #   needs: deploy-qat-approval
-  #   runs-on: windows-latest
-  #   environment: qat
-  #   steps:
-  #   - name: Do work in QAT
-  #     run: |
-  #       echo "Do some work in QAT."
+      - name: Stage Artifacts
+        run: |
+          $artifactsDir = "${{RUNNER.WORKSPACE}}\a"
+          if (!(Test-Path $artifactsDir)) {
+            New-Item $artifactsDir -ItemType Directory | Out-Null
+          }
 
-  # deploy-prod:
-  #   name: Deploy - Prod
-  #   needs: deploy-qat
-  #   runs-on: windows-latest
-  #   environment: prod
-  #   steps:
-  #   - name: Do work in PROD
-  #     run: |
-  #       echo "Do some work in PROD."
+          Get-ChildItem -Include *.pbix,*.msapp -Recurse | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $artifactsDir
+          }
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: powerbi_artifacts
+          path: ${{RUNNER.WORKSPACE}}\a
+
+  deploy-prod:
+    name: Deploy - PROD
+    runs-on: windows-latest
+    environment: prod
+    needs: deploy-dev
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Print Env Variables
+        run: C:\Windows\System32\cmd.exe /c set
+
+      # - uses: sede-x/SCMA-Reports/.github/actions/powerbi-publish@main
+      #   with:
+      #     workspace-name: 'PW-GF-power bi ci cd testing'
+      #     report-path: "${{GITHUB.WORKSPACE}}\\reports"
+      #     client-id: ${{ secrets.CLIENTID }}
+      #     client-secret: ${{ secrets.CLIENTSECRET }}
+      #     tenant-id: ${{ secrets.TENANTID }}
+
+      - name: Publish Reports
+        run: |
+          ${{ GITHUB.WORKSPACE }}\.github\actions\powerbi-publish\run-task.ps1 -ClientId ${{ secrets.CLIENTID }} -Secret ${{ secrets.CLIENTSECRET }} -TenantId ${{ secrets.TENANTID }} -FilePattern "${{GITHUB.WORKSPACE}}\\reports" -WorkspaceName  ${{secrets.WORKSPACENAME}} -Action 'Publish' -Create $true -Overwrite $true
+        shell: powershell
+
+      - name: Update Datasources
+        run: |
+          ${{ GITHUB.WORKSPACE }}\.github\actions\powerbi-publish\run-task.ps1 -ClientId ${{ secrets.CLIENTID }} -Secret ${{ secrets.CLIENTSECRET }} -TenantId ${{ secrets.TENANTID }} -FilePattern "${{GITHUB.WORKSPACE}}\\reports" -WorkspaceName  ${{secrets.WORKSPACENAME}} -Action 'UpdateDatasourceViaGateway' -Dataset 'ECR_PROD' -NewServer '${{ secrets.DB_SERVER }}' -NewDatabase '${{ secrets.DB_NAME }}' -DataSourceUsername '${{ secrets.DB_USER }}' -DataSourcePassword '${{ secrets.DB_PASSWORD }}'
+        shell: powershell
+
+      - name: Update Datasources
+        run: |
+          ${{ GITHUB.WORKSPACE }}\.github\actions\powerbi-publish\run-task.ps1 -ClientId ${{ secrets.CLIENTID }} -Secret ${{ secrets.CLIENTSECRET }} -TenantId ${{ secrets.TENANTID }} -FilePattern "${{GITHUB.WORKSPACE}}\\reports" -WorkspaceName  ${{secrets.WORKSPACENAME}} -Action 'UpdateDatasourceViaGateway' -Dataset 'CAISO_PROD' -NewServer '${{ secrets.DB_SERVER }}' -NewDatabase '${{ secrets.DB_NAME }}' -DataSourceUsername '${{ secrets.DB_USER }}' -DataSourcePassword '${{ secrets.DB_PASSWORD }}'
+        shell: powershell
+
+      - name: list contents
+        run: ls
+
+      - name: Stage Artifacts
+        run: |
+          $artifactsDir = "${{RUNNER.WORKSPACE}}\a"
+          if (!(Test-Path $artifactsDir)) {
+            New-Item $artifactsDir -ItemType Directory | Out-Null
+          }
+
+          Get-ChildItem -Include *.pbix,*.msapp -Recurse | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $artifactsDir
+          }
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: powerbi_artifacts
+          path: ${{RUNNER.WORKSPACE}}\a

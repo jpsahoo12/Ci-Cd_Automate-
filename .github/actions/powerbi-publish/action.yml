@@ -1,0 +1,89 @@
+name: 'PowerBI-Publish'
+description: 'Publish Power BI Reports'
+
+inputs:
+  workspace-name:
+    description: 'Power BI Workspace Name'
+    required: true
+  report-path:
+    description: 'Path to Reports'
+    required: true
+    default: 'C:'
+  tenant-id:
+    description: 'Azure Tenant ID'
+    required: true
+  client-id:
+    description: 'Power BI Client ID'
+    required: true
+  client-secret:
+    description: 'Power BI Client Secret'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Publish Power BI Reports
+      shell: powershell
+      run: |
+        Write-Host "Report Path: ${{ inputs.report-path }}"
+        Write-Host "Workspace Name: ${{ inputs.workspace-name }}"
+        Write-Host "Client ID: ${{ inputs.client-id }}"
+        Write-Host "Client Secret: ${{ inputs.client-secret }}"
+        Write-Host "Tenant ID: ${{ inputs.tenant-id }}"
+        Write-Host "Action: Publish"
+
+        ${{ github.action_path }}\run-task.ps1 `
+          -ClientId ${{ inputs.client-id }} `
+          -Secret ${{ inputs.client-secret }} `
+          -TenantId ${{ inputs.tenant-id }} `
+          -FilePattern ${{ inputs.report-path }} `
+          -WorkspaceName ${{ inputs.workspace-name }} `
+          -Action 'Publish' `
+          -Create $true `
+          -Overwrite $true
+
+    - name: Update Data Source Credentials
+      shell: powershell
+      run: |
+        Write-Host "Report Path: ${{ inputs.report-path }}"
+        Write-Host "Workspace Name: ${{ inputs.workspace-name }}"
+        Write-Host "Client ID: ${{ inputs.client-id }}"
+        Write-Host "Client Secret: ${{ inputs.client-secret }}"
+        Write-Host "Tenant ID: ${{ inputs.tenant-id }}"
+        Write-Host "Action: Publish"
+
+        ${{ github.action_path }}\run-task.ps1 `
+          -ClientId ${{ inputs.client-id }} `
+          -Secret ${{ inputs.client-secret }} `
+          -TenantId ${{ inputs.tenant-id }} `
+          -FilePattern ${{ inputs.report-path }} `
+          -WorkspaceName ${{ inputs.workspace-name }} `
+          -Action 'UpdateDatasource' `
+          -UpdateAll $false `
+          -Dataset  'ECR_CICD' `
+          -DatasourceType 'Sql' `
+          -OldServer 'scmapwrsqlsrvdev.database.windows.net' `
+          -NewServer 'scmapwrsqlsrvdev.database.windows.net' `
+          -NewDatabase 'scmapwrsqldbdev' `
+          -OldDatabase 'scmapwrsqldbdev'
+
+    # - name: Update Direct Query
+    #   shell: powershell
+    #   run: |
+    #     Write-Host "Report Path: ${{ inputs.report-path }}"
+    #     Write-Host "Workspace Name: ${{ inputs.workspace-name }}"
+    #     Write-Host "Client ID: ${{ inputs.client-id }}"
+    #     Write-Host "Client Secret: ${{ inputs.client-secret }}"
+    #     Write-Host "Tenant ID: ${{ inputs.tenant-id }}"
+    #     Write-Host "Action: Publish"
+
+    #     ${{ github.action_path }}\run-task.ps1 `
+    #       -ClientId ${{ inputs.client-id }} `
+    #       -Secret ${{ inputs.client-secret }} `
+    #       -TenantId ${{ inputs.tenant-id }} `
+    #       -FilePattern ${{ inputs.report-path }} `
+    #       -WorkspaceName ${{ inputs.workspace-name }} `
+    #       -Action 'SQLDirect' `
+    #       -Dataset  'ECR_CICD' `
+    #       -ConnectionString 'Sql'
